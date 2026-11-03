@@ -4,8 +4,8 @@
 # re-run from the pre-refresh-pacman and post-update hooks.
 #  - IgnorePkg: WSL boots Microsoft's kernel; never pull a kernel/DKMS/firmware
 #    in on -Syu. (Not linux-* as a whole: linux-api-headers is a glibc dep.)
-#  - [womarchy] before [core], so its hyprland/aquamarine/mesa builds win over
-#    Arch's: the hosted repo first (updates), the image's local copy as the
+#  - [womarchy] before every other repo, so its hyprland/aquamarine/mesa builds
+#    win over Omarchy's and Arch's: the hosted repo first (updates), the image's local copy as the
 #    offline fallback. Fails (non-zero, message) rather than leave it out.
 #  - Signatures: `SigLevel = PackageOptional DatabaseRequired` (CI signs the db
 #    and every package with the womarchy key), written only after checking that
@@ -89,7 +89,7 @@ WARN
   fi
 fi
 
-# --- [womarchy] block, rebuilt before [core] ---------------------------------------------
+# --- [womarchy] block, rebuilt before the first repository ------------------------------
 tmp=$(mktemp "$CONF.womarchy.XXXXXX")
 trap 'rm -f "$tmp"' EXIT
 awk -v hosted="$HOSTED" -v local_dir="$REPO_DIR" -v siglevel="$siglevel" '
@@ -97,8 +97,9 @@ awk -v hosted="$HOSTED" -v local_dir="$REPO_DIR" -v siglevel="$siglevel" '
   /^\[womarchy\][[:space:]]*$/ { skip = 1; next }   # previous block, up to the next section
   /^\[/ { skip = 0 }
   skip { next }
-  !placed && /^\[core\][[:space:]]*$/ {
-    print "# womarchy repo (managed by womarchy-compat): must stay before [core] so its packages win"
+  /^\[core\][[:space:]]*$/ { has_core = 1 }
+  !placed && /^\[/ && !/^\[options\][[:space:]]*$/ {
+    print "# womarchy repo (managed by womarchy-compat): must stay first so its packages win"
     print "[womarchy]"
     print "SigLevel = " siglevel
     print "Server = " hosted
@@ -107,8 +108,8 @@ awk -v hosted="$HOSTED" -v local_dir="$REPO_DIR" -v siglevel="$siglevel" '
     placed = 1
   }
   { print }
-  END { exit !placed }
-' "$CONF" >"$tmp" || fail "no [core] section in $CONF: cannot place [womarchy] before it"
+  END { exit !(placed && has_core) }
+' "$CONF" >"$tmp" || fail "no [core] section in $CONF: cannot configure [womarchy] safely"
 
 first=$(grep -v '^\[options\]' "$tmp" | grep -m1 -E '^\[[A-Za-z0-9_-]+\]' || true)
 [[ $first == "[womarchy]" ]] || fail "[womarchy] would not be the first repository (first is '$first')"
