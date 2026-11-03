@@ -327,9 +327,7 @@ pub fn hide_windows() {
 pub fn start_keyboard_hook() {
     thread::spawn(|| unsafe {
         HOOK_THREAD.store(GetCurrentThreadId(), Ordering::SeqCst);
-        // Low-level hooks run in this thread, not an injected DLL. No module identity is needed;
-        // passing an EXE module can collide with another viewer with the same executable name.
-        let Ok(hook) = SetWindowsHookExW(WH_KEYBOARD_LL, Some(ll_keyboard), None, 0) else {
+        let Ok(hook) = SetWindowsHookExW(WH_KEYBOARD_LL, Some(ll_keyboard), Some(GetModuleHandleW(None).unwrap().into()), 0) else {
             eprintln!("[omarchy] cannot install the keyboard hook; the Windows key will go to Windows");
             return;
         };
