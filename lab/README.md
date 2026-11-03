@@ -36,6 +36,21 @@ The tests that show the desktop dot-source `assert-desktop.ps1`, which stops the
 
 ## Backend regression tests (Linux, no desktop)
 
+`pointer-warp-desktop-test.ps1` tests the real Windows viewer against a prepared `omarchy-test*`
+distro. It injects real Windows scancodes, checks physical cursor coordinates against Hyprland, and
+restores the original mouse/focus afterwards. Keep input idle during the test. `-Fullscreen` uses
+up to two currently active physical screens; with one screen it tests both workspaces there and
+skips the two-window minimize/hide cases. Default windowed mode tests mixed-scale outputs.
+
+```powershell
+.\lab\pointer-warp-desktop-test.ps1 -Exe "$env:USERPROFILE\code\bin\womarchy.exe" -Distro omarchy-test-pointer
+.\lab\pointer-warp-desktop-test.ps1 -Exe "$env:USERPROFILE\code\bin\womarchy.exe" -Distro omarchy-test-pointer -Fullscreen
+```
+
+`pointer-warp-hyprland-test.py` exercises a real compositor without moving the Windows cursor.
+Run it in the test distro with `--output <directory>`; it requires patched Hyprland/Aquamarine and
+Foot/grim. It checks rendering, keybindings, mixed-scale warp coordinates, echoes, and `no_warps`.
+
 `pointer-warp-test.cpp` runs an isolated AF_UNIX WSL backend with an authenticated fake viewer and
 two outputs. It verifies explicit warp routing and the absence of a normal-motion feedback loop.
 See the [cursor upgrade audit](../docs/research/05-workspace-cursor-upgrade.md#validation-and-remaining-desktop-check)

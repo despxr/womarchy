@@ -1,7 +1,8 @@
 # Workspace cursor warps: upstream and snapshot audit
 
 Checked on 2026-11-03 before extending the Womarchy patch series. No installed packages or desktop
-configuration were changed during this investigation.
+configuration were changed during the initial investigation. Later desktop validation and deployment
+staging are recorded below.
 
 ## Version and dependency check
 
@@ -118,7 +119,9 @@ timeout 15 /tmp/womarchy-pointer-warp-test
 
 A full local Windows `cargo test --release --locked` attempt was blocked by Windows refusing to
 execute Cargo dependency build scripts (`Access denied`). No Windows security settings were changed.
-The regular Windows CI build/tests remain required before release, as do full package builds.
+The Windows CI build/tests/clippy subsequently passed, and the tested binary was retrieved from its
+artifact. The package build also passed against Omarchy's snapshot on a non-main test branch;
+publication was skipped.
 
 After installing the rebuilt packages and viewer in a **test session**, verify:
 
@@ -130,5 +133,41 @@ After installing the rebuilt packages and viewer in a **test session**, verify:
 - With a different Windows application foreground, or a target viewer minimized, the viewer must
   not relocate the host cursor.
 
-The running desktop was not replaced or restarted during development; that visual end-to-end check
-is still pending.
+## Desktop validation and deployment staging
+
+The built package artifacts are Aquamarine `0.15.1-1.10` and Hyprland `0.56.2-4.7` from
+[package build 41715411593](https://github.com/kineticz/womarchy/actions/runs/41715411593).
+They installed successfully in `omarchy-test-pointer`, prepared from the SHA256-verified v0.2.0
+release image. All libraries required by the new compositor resolve on both that distro and the
+running desktop.
+
+The final Windows viewer was tested from the host owner's approved `code/bin/womarchy.exe`
+location. Defender's executable-reputation ASR rule blocked repeat execution from the temporary
+folder; no Defender or other security settings were changed. A concurrent second `omarchy.exe`
+did not receive Win-key input on this host, whereas the byte-identical viewer under a distinct name
+did. The keyboard-hook module experiment did not solve that difference and was reverted; the
+underlying host-specific name interaction is not yet diagnosed. The distinct final filename was
+therefore retested, not merely copied after testing another name.
+
+Results with the final filename:
+
+- **21 windowed integration checks passed:** two outputs at scales 1.25 and 1.0; three cycles of
+  Win+1/Win+2 through the Windows keyboard hook; physical cursor coordinates; small subsequent mouse
+  movements; normal cross-output motion; `no_warps`; forced warps; minimized/hidden targets;
+  foreground application protection; rendering, configuration validation, and clean viewer exit.
+- **19 fullscreen checks passed:** Windows reported only one active physical display at test time,
+  so both workspaces were exercised on that screen at scale 1.25. Fullscreen two-physical-monitor
+  testing remains conditional on reconnecting the second display; no display settings were changed.
+- **12 isolated real-compositor checks passed:** authenticated inline frames, two mixed-scale
+  outputs, real Hyprland keybindings, exact outgoing warp coordinates, echo/no-motion feedback checks,
+  `no_warps`, forced movement, screenshots, and clean compositor exit.
+
+The tests are [pointer-warp-desktop-test.ps1](../../lab/pointer-warp-desktop-test.ps1) and
+[pointer-warp-hyprland-test.py](../../lab/pointer-warp-hyprland-test.py). Screenshots/logs stay local,
+not in the repository. The temporary distro is stopped after use.
+
+Deployment staging: the new Windows viewer is in the approved `code/bin` folder, and the existing
+Omarchy Start-menu shortcut targets it. Previous viewer/shortcut and both old package archives were
+saved for rollback. Linux package installation on the everyday desktop is awaiting authorization
+in a dedicated sudo terminal after the background pkexec request expired. The active desktop has
+not been restarted; it still uses the old compositor until installation and an agreed restart.
