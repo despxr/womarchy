@@ -10,10 +10,17 @@ on:
   schedule:
     - cron: '17 7 * * *'
   workflow_dispatch:
+  workflow_run:
+    workflows: [packages]
+    types: [completed]
 
 permissions:
   contents: read
   issues: write
+
+defaults:
+  run:
+    shell: bash
 
 env:
   SNAPSHOT: https://stable-mirror.omarchy.org
@@ -21,6 +28,9 @@ env:
 
 jobs:
   check:
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
     container: archlinux:base
     outputs:

@@ -44,10 +44,12 @@ gh workflow run packages.yml --repo kineticz/womarchy --ref main \
 gh run list --repo kineticz/womarchy --workflow packages.yml
 ```
 
-After a successful publication, run `snapshot-watch.yml` manually against this
-fork. It checks installation of the complete repository on the current snapshot,
-including the mirrored Hyprland and aquamarine packages. If they also need a
-rebuild, do that before switching a real installation.
+After a successful packages workflow, `snapshot-watch.yml` automatically checks
+installation of the complete repository on the current snapshot, including the
+mirrored Hyprland and aquamarine packages. It can also be run manually. If those
+packages also need a rebuild, do that before switching a real installation.
+Check the report and any `rebuild-needed` issue: a successful workflow that opened
+such an issue means the repository is **not** compatible yet.
 
 For an independent download/signature check (no installation):
 
