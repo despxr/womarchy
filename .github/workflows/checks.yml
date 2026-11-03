@@ -31,6 +31,12 @@ jobs:
       - run: cargo build --release --locked
       - run: cargo test --release --locked
       - run: cargo clippy --release --all-targets --locked -- -D warnings
+      - uses: actions/upload-artifact@v7
+        with:
+          name: omarchy-windows
+          path: windows/omarchy/target/release/omarchy.exe
+          if-no-files-found: error
+          retention-days: 7
 
   scripts:
     name: scripts and docs
