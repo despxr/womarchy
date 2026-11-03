@@ -5,8 +5,8 @@
 # in the CI signing environment.
 pkgname=womarchy-keyring
 pkgver=20261001
-pkgrel=1
-pkgdesc='womarchy package repository PGP keyring'
+pkgrel=2
+pkgdesc='womarchy package repository PGP keyring (upstream and kineticz fork)'
 arch=(any)
 url='https://github.com/sytelus/womarchy'
 license=(MIT)

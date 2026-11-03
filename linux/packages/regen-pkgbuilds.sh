@@ -5,7 +5,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 AQUAMARINE_REL=9 # 9: no MAP_POPULATE on shm buffers (startup); 8: WDP v2, review fixes; see patches/aquamarine
 HYPRLAND_REL=6 # 6: two shm swapchain buffers (startup); 5: review fixes; see patches/hyprland
-MESA_REL=1
+MESA_REL=2 # rebuild for LLVM 23.1; record the linked LLVM soname in runtime dependencies
 PY=$(command -v python3 >/dev/null && python3 -c 'print(1)' >/dev/null 2>&1 && echo python3 || echo python)
 
 bash refresh-patches.sh

@@ -15,7 +15,7 @@ pkgname=(
 )
 pkgver=26.2.3
 _pkgver=${pkgver/[a-z]/-&}
-pkgrel=2.1
+pkgrel=2.2
 epoch=1
 pkgdesc="Open-source OpenGL drivers"
 url="https://www.mesa3d.org/"
@@ -278,6 +278,7 @@ package_mesa() {
     libxshmfence
     libxxf86vm
     llvm-libs
+    libLLVM.so
     lm_sensors
     spirv-tools
     wayland
@@ -382,6 +383,7 @@ package_vulkan-swrast() {
     libxcb
     libxshmfence
     llvm-libs
+    libLLVM.so
     spirv-tools
     systemd-libs
     vulkan-icd-loader

@@ -60,6 +60,11 @@ for dep in ["rust", "rust-bindgen", "libclc", "spirv-llvm-translator", "python-s
             "valgrind", "clang", "cbindgen", "python-pycparser"]:
     s = re.sub(rf"\n\s*{re.escape(dep)}(\s*#[^\n]*)?(?=\n)", "", s)
 
+# Pin the LLVM ABI used by each runtime package. makepkg resolves libLLVM.so to
+# libLLVM.so=<soname>-64, so pacman cannot accept a library-breaking upgrade.
+s, n = re.subn(r"(?m)^(    llvm-libs)$", r"\1\n    libLLVM.so", s)
+assert n == 2, f"expected Mesa and lavapipe LLVM dependencies, got {n}"
+
 # 7. our patches (applied by Arch's prepare(), which patches every *.patch in source[])
 s = re.sub(r"source=\(", "source=(\n  " + "\n  ".join(patches), s, count=1)
 for arr in ("sha256sums", "b2sums"):

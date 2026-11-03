@@ -60,6 +60,9 @@ jobs:
           print(len(sys.argv) - 1, "Python files compile")
           EOF
 
+      - name: Mesa packaging regression tests
+        run: python3 tools/test-mesa-pkgbuild.py -v
+
       - name: PowerShell parses
         shell: pwsh
         run: |
