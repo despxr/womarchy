@@ -77,13 +77,27 @@ check succeed. Back up/export the WSL distro first. Test GPU rendering in a
 throwaway distro before changing your working desktop. Do not ignore LLVM,
 force dependencies, or disable the transaction hook to get past a failed check.
 
-1. Download the public key from this fork, inspect its complete fingerprint with
-   `gpg --show-keys --with-fingerprint`, and compare it with the value above through
-   a trusted channel. Then import and locally trust that exact key in pacman:
+1. From a checked-out copy of this fork, run the key setup script as your normal
+   user (not the whole script through sudo):
 
    ```sh
-   sudo pacman-key --add /path/to/verified/kineticz.asc
-   sudo pacman-key --lsign-key E0294A6FFD4CC7FF61F86F0BB0EE0B3F4029644C
+   bash tools/trust-fork-key.sh
+   ```
+
+   [trust-fork-key.sh](../tools/trust-fork-key.sh) downloads the public key into a
+   temporary directory and checks its complete primary fingerprint against the
+   pinned value above. It rejects additional primary keys and stops on download,
+   parse or import errors. Only the two `pacman-key` operations request sudo; the
+   temporary directory is removed on exit. It does not modify repository settings
+   or install packages, and it does not depend on a variable from another shell.
+
+   Without a checkout, download the script to a file, inspect it, and then run it:
+
+   ```sh
+   curl -fL https://raw.githubusercontent.com/kineticz/womarchy/main/tools/trust-fork-key.sh \
+     -o trust-fork-key.sh
+   less trust-fork-key.sh
+   bash trust-fork-key.sh
    ```
 
 2. Use `sudoedit /etc/womarchy/config` to set the following, preserving the other
