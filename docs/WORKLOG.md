@@ -720,3 +720,13 @@ Decision: no default change. TROUBLESHOOTING documents the X11 opt-in for WebGL-
 - **Content:** fastfetch (RTX 5070), btop tiled beside it, Omarchy's menu, the theme gallery applying Rose Pine, then browsing to Gruvbox, then `glxinfo` showing "D3D12 (NVIDIA GeForce RTX 5070)" with es2gears and vkcube. The closing card shows the three-monitor screenshot and the install line.
 
 **Project:** new README (highlights, install and use, the work-in-progress warning, a diagram); contributions through issues only, with a "fix, if you have one" field in the issue forms; `docs/JOURNEY.md`.
+
+## 2026-11-03 — Workspace cursor warps and an upstream compatibility audit
+
+- **Report:** Super+1 focuses workspace 1 on another monitor, but the Windows cursor stays on workspace 2's monitor.
+- **Upstream first:** inspected Hyprland 0.57.1/main and Aquamarine 0.16.0 against the actual Omarchy snapshot. Hyprland 0.57.1 needs Hyprutils >= 0.14.3; the snapshot still supplies 0.14.2. Rendering patches 0001–0003 need rebasing, 0004 applies, and 0005 is already upstream. Aquamarine's newer release also changes soname 14 to 15. Keep the pinned versions for now; see the [audit](research/05-workspace-cursor-upgrade.md).
+- **Cause:** explicit Linux pointer warps have no corresponding host message; the WSL output correctly ignores ordinary cursor-plane motion because Windows owns the real cursor. Newer upstream has the same explicit-warp path and does not add Womarchy's missing protocol integration.
+- **Fix:** small, separate Aquamarine/Hyprland patches send `WDP_POINTER_WARP` only for explicit actions, respecting `cursor:no_warps` and reusing the output-coordinate helper. The UI thread moves the Windows pointer only for a live, foreground viewer with a visible target window. New package revisions are Aquamarine `1.10` and Hyprland `4.7`; Hyprland also requires the new Aquamarine revision because the extra method adds a symbol without changing soname.
+- **Verified locally:** protocol parser regressions, Windows-target clippy, C++23 syntax checks, deterministic package generation, and an authenticated AF_UNIX backend test with two outputs. Explicit warps route correctly; ordinary input and warp echoes generate no outgoing warp.
+- **Still pending:** full package builds, Windows CI build/tests, and visual mixed-DPI workspace switching in a test session. Local Windows Cargo tests were blocked by `Access denied` when launching dependency build scripts; no security settings were changed. The everyday desktop was not upgraded or restarted.
+- **Implementation and investigation:** AI-assisted; no upstream submission or package publication was performed.

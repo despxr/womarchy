@@ -1,0 +1,95 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kaiyin Zhong <kaiyin@zhong.science>
+Date: Tue, 3 Nov 2026 21:22:31 +0100
+Subject: [PATCH 3/3] backend: wsl forward explicit cursor warps to the host
+
+Keep moveCursor a no-op for normal host input. Add a separate explicit-warp entry point and an additive WDP v2 message, so compositor focus actions can move the real Windows pointer without a motion feedback loop. Refresh the backend protocol header from the shared specification.
+---
+ include/aquamarine/backend/Wsl.hpp |  3 +++
+ src/backend/Wsl.cpp                |  7 +++++++
+ src/backend/wsl/wdp.h              | 13 ++++++++++++-
+ 3 files changed, 22 insertions(+), 1 deletion(-)
+
+diff --git a/include/aquamarine/backend/Wsl.hpp b/include/aquamarine/backend/Wsl.hpp
+index 5e72b17..64b9e59 100644
+--- a/include/aquamarine/backend/Wsl.hpp
++++ b/include/aquamarine/backend/Wsl.hpp
+@@ -48,6 +48,9 @@ namespace Aquamarine {
+         Hyprutils::Memory::CWeakPointer<CWslOutput>                       self;
+         uint32_t                                                          monitorID = 0;
+ 
++        // Explicit compositor warps only; moveCursor is also called for normal host input.
++        void                                                              warpCursor(const Hyprutils::Math::Vector2D& coord);
++
+       private:
+         CWslOutput(const std::string& name_, uint32_t id, Hyprutils::Memory::CWeakPointer<CWslBackend> wsl_);
+ 
+diff --git a/src/backend/Wsl.cpp b/src/backend/Wsl.cpp
+index 67b2dce..56bb0c2 100644
+--- a/src/backend/Wsl.cpp
++++ b/src/backend/Wsl.cpp
+@@ -297,6 +297,13 @@ void Aquamarine::CWslOutput::moveCursor(const Vector2D& coord, bool skipSchedule
+     ;
+ }
+ 
++void Aquamarine::CWslOutput::warpCursor(const Vector2D& coord) {
++    if (auto b = wsl.lock()) {
++        const wdp_pointer_warp msg{.output_id = monitorID, .x = coord.x, .y = coord.y};
++        b->send(WDP_POINTER_WARP, &msg, sizeof(msg));
++    }
++}
++
+ void Aquamarine::CWslOutput::setCursorVisible(bool visible_) {
+     if (cursor.visible == visible_)
+         return;
+diff --git a/src/backend/wsl/wdp.h b/src/backend/wsl/wdp.h
+index a31e18a..3266a8e 100644
+--- a/src/backend/wsl/wdp.h
++++ b/src/backend/wsl/wdp.h
+@@ -32,7 +32,8 @@
+  *
+  * Clipboard channel: womarchy-clipd listens on the compositor's port + WDP_CLIP_PORT_OFFSET with its own
+  * 32-byte token and the same handshake (WDP_CLIP_HELLO / WDP_CLIP_WELCOME), then both sides send
+- * WDP_CLIP_TEXT whenever their clipboard changes.
++ * WDP_CLIP_TEXT, or WDP_CLIP_IMAGE when the clipboard holds an image and no text, whenever their
++ * clipboard changes. (WDP_CLIP_IMAGE was added without a version bump: older peers skip it.)
+  */
+ #ifndef WDP_H
+ #define WDP_H
+@@ -50,6 +51,8 @@
+ #define WDP_MAX_RECTS     64u        /* per frame; more damage is sent as its bounding box */
+ #define WDP_MAX_CURSOR    256u       /* cursor image width/height */
+ #define WDP_MAX_MESSAGE   (64u << 20) /* payload bytes; a full inline 4K frame is 33 MB */
++#define WDP_MAX_CLIP_TEXT  (16u << 20) /* clipboard text, bytes */
++#define WDP_MAX_CLIP_IMAGE (32u << 20) /* clipboard image (PNG), bytes */
+ 
+ /* message types: viewer -> compositor */
+ #define WDP_HELLO          1u  /* wdp_hello: must be first */
+@@ -72,12 +75,14 @@
+ #define WDP_OUTPUT_REMOVED 102u /* wdp_output_removed */
+ #define WDP_FRAME          103u /* wdp_frame + wdp_rect[nrects] (+ pixels if INLINE) */
+ #define WDP_CURSOR         104u /* wdp_cursor (+ width*height*4 bytes if has_image) */
++#define WDP_POINTER_WARP   105u /* wdp_pointer_warp: explicit compositor warp of the host cursor */
+ #define WDP_BYE            110u /* wdp_bye: the compositor is exiting */
+ 
+ /* message types: clipboard channel */
+ #define WDP_CLIP_HELLO     200u /* viewer -> clipd: wdp_clip_hello */
+ #define WDP_CLIP_TEXT      201u /* both ways: UTF-8 text with LF line endings; the whole payload */
+ #define WDP_CLIP_WELCOME   202u /* clipd -> viewer: wdp_clip_welcome, proves clipd */
++#define WDP_CLIP_IMAGE     203u /* both ways: a PNG image; the whole payload (at most WDP_MAX_CLIP_IMAGE) */
+ 
+ /* transports (bit numbers in wdp_hello.transports) */
+ #define WDP_TRANSPORT_INLINE  1u
+@@ -207,6 +212,12 @@ struct wdp_cursor {
+     /* uint8_t argb8888[width * height * 4] if has_image */
+ };
+ 
++/* Only explicit warps, never ordinary pointer motion or cursor-plane updates: no feedback loop. */
++struct wdp_pointer_warp {
++    uint32_t output_id;
++    double   x, y; /* output-local physical pixels, excluding the cursor hotspot */
++};
++
+ struct wdp_bye {
+     int32_t code;
+ };

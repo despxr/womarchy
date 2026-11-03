@@ -35,6 +35,7 @@ pub const OUTPUT: u32 = 101;
 pub const OUTPUT_REMOVED: u32 = 102;
 pub const FRAME: u32 = 103;
 pub const CURSOR: u32 = 104;
+pub const POINTER_WARP: u32 = 105;
 pub const BYE: u32 = 110;
 
 // clipboard channel (to womarchy-clipd on port + CLIP_PORT_OFFSET)
@@ -234,6 +235,9 @@ impl<'a> Reader<'a> {
     pub fn u64(&mut self) -> Option<u64> {
         self.take(8).map(|b| u64::from_le_bytes(b.try_into().unwrap()))
     }
+    pub fn f64(&mut self) -> Option<f64> {
+        self.take(8).map(|b| f64::from_le_bytes(b.try_into().unwrap()))
+    }
     pub fn str_fixed(&mut self, len: usize) -> Option<String> {
         self.take(len).map(|b| {
             let end = b.iter().position(|&c| c == 0).unwrap_or(b.len());
@@ -242,6 +246,34 @@ impl<'a> Reader<'a> {
     }
     pub fn rest(&self) -> &'a [u8] {
         &self.data[self.pos..]
+    }
+}
+
+/// An explicit compositor warp, in output-local physical pixels (not logical desktop coordinates).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PointerWarp {
+    pub output: u32,
+    pub x: f64,
+    pub y: f64,
+}
+
+impl PointerWarp {
+    pub fn parse(payload: &[u8]) -> Option<Self> {
+        let mut r = Reader::new(payload);
+        let warp = Self { output: r.u32()?, x: r.f64()?, y: r.f64()? };
+        if warp.output == 0 || !warp.x.is_finite() || !warp.y.is_finite()
+            || warp.x < 0.0 || warp.y < 0.0 || warp.x > MAX_DIMENSION as f64 || warp.y > MAX_DIMENSION as f64 {
+            return None;
+        }
+        Some(warp)
+    }
+
+    pub fn client_point(self, width: u32, height: u32) -> Option<(i32, i32)> {
+        // An output transform can map a boundary onto width/height. Keep it on the last pixel.
+        if width == 0 || height == 0 || self.x > width as f64 || self.y > height as f64 {
+            return None;
+        }
+        Some((self.x.round().min((width - 1) as f64) as i32, self.y.round().min((height - 1) as f64) as i32))
     }
 }
 
@@ -322,6 +354,34 @@ mod tests {
 
     fn parse(payload: &[u8]) -> Option<Frame> {
         parse_frame(&mut Reader::new(payload))
+    }
+
+    #[test]
+    fn pointer_warps_parse_and_validate() {
+        let payload = |id, x, y| {
+            let mut m = Msg::new(POINTER_WARP);
+            m.u32(id).f64(x).f64(y);
+            m.finish()[8..].to_vec()
+        };
+        let full = payload(2, 1200.5, 800.25);
+        let warp = PointerWarp::parse(&full).unwrap();
+        assert_eq!(warp, PointerWarp { output: 2, x: 1200.5, y: 800.25 });
+        assert_eq!(warp.client_point(1920, 1080), Some((1201, 800)));
+        assert_eq!(warp.client_point(800, 600), None);
+        assert_eq!(warp.client_point(0, 1080), None);
+        assert_eq!(PointerWarp::parse(&payload(1, 1919.9, 1079.9)).unwrap().client_point(1920, 1080), Some((1919, 1079)));
+        assert_eq!(PointerWarp::parse(&payload(1, 1920.0, 1080.0)).unwrap().client_point(1920, 1080), Some((1919, 1079)));
+        assert_eq!(PointerWarp::parse(&payload(1, 1920.1, 1080.0)).unwrap().client_point(1920, 1080), None);
+        for len in 0..full.len() {
+            assert!(PointerWarp::parse(&full[..len]).is_none());
+        }
+        for (id, x, y) in [(0, 1.0, 1.0), (1, -1.0, 0.0), (1, 0.0, -1.0),
+            (1, f64::NAN, 0.0), (1, 0.0, f64::INFINITY), (1, MAX_DIMENSION as f64 + 1.0, 0.0)] {
+            assert!(PointerWarp::parse(&payload(id, x, y)).is_none());
+        }
+        let mut extended = full;
+        extended.extend_from_slice(&[0; 4]);
+        assert!(PointerWarp::parse(&extended).is_some(), "unknown trailing fields are compatible");
     }
 
     #[test]

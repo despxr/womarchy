@@ -1,0 +1,60 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Kaiyin Zhong <kaiyin@zhong.science>
+Date: Tue, 3 Nov 2026 21:22:31 +0100
+Subject: [PATCH 6/6] pointer: synchronize explicit warps with the WSL viewer
+
+After the no_warps guard and layout clamping, notify WSL outputs of explicit cursor warps. Reuse the existing monitor coordinate helper for scale and transform handling; leave incoming motion and other backends unchanged. Requires the patched Aquamarine warpCursor entry point.
+---
+ src/pointer/PointerController.cpp | 10 +++++++++-
+ src/pointer/PointerManager.hpp    |  4 ++--
+ 2 files changed, 11 insertions(+), 3 deletions(-)
+
+diff --git a/src/pointer/PointerController.cpp b/src/pointer/PointerController.cpp
+index 4b24745..5c2e341 100644
+--- a/src/pointer/PointerController.cpp
++++ b/src/pointer/PointerController.cpp
+@@ -5,6 +5,8 @@
+ #include "../desktop/state/FocusState.hpp"
+ 
+ #include "PointerManager.hpp"
++#include "../output/Monitor.hpp"
++#include <aquamarine/backend/Wsl.hpp>
+ 
+ using namespace Pointer;
+ 
+@@ -24,6 +26,12 @@ void CPointerController::warpTo(const Vector2D& pos, bool force) const {
+ 
+     Pointer::mgr()->warpTo(pos);
+ 
+-    const auto PMONITORNEW = State::monitorState()->query().vec(pos).run();
++    const auto ACTUALPOS   = Pointer::mgr()->position();
++    const auto PMONITORNEW = State::monitorState()->query().vec(ACTUALPOS).run();
++    // A remote viewer owns the real cursor. Notify it only for explicit warps, not incoming motion.
++    if (PMONITORNEW) {
++        if (auto output = dynamic_cast<Aquamarine::CWslOutput*>(PMONITORNEW->m_output.get()))
++            output->warpCursor(Pointer::mgr()->getCursorPosForMonitor(PMONITORNEW));
++    }
+     Desktop::focusState()->rawMonitorFocus(PMONITORNEW);
+ }
+diff --git a/src/pointer/PointerManager.hpp b/src/pointer/PointerManager.hpp
+index 074240f..49f7715 100644
+--- a/src/pointer/PointerManager.hpp
++++ b/src/pointer/PointerManager.hpp
+@@ -66,6 +66,8 @@ namespace Pointer {
+ 
+         //
+         Vector2D position();
++        // Monitor-local physical pixels, including the output transform but excluding the hotspot.
++        Vector2D getCursorPosForMonitor(PHLMONITOR pMonitor);
+         Vector2D hotspot();
+         Vector2D cursorSizeLogical();
+ 
+@@ -106,8 +108,6 @@ namespace Pointer {
+         // closest valid point to a given one
+         Vector2D closestValid(const Vector2D& pos);
+ 
+-        // returns the thing in device coordinates. Is NOT offset by the hotspot, relies on set_cursor with hotspot.
+-        Vector2D getCursorPosForMonitor(PHLMONITOR pMonitor);
+         // returns the thing in logical coordinates of the monitor
+         CBox     getCursorBoxLogicalForMonitor(PHLMONITOR pMonitor);
+ 

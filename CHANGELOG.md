@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+**Fixed**
+- Keyboard workspace/focus changes across monitors now forward explicit cursor warps to Windows, instead of leaving the host cursor on the previous monitor. Requires the rebuilt Hyprland/Aquamarine packages and Windows viewer; ordinary mouse motion is unchanged.
+
 ## 0.2.0 (2026-10-01)
 
 **New**

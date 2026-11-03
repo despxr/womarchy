@@ -34,6 +34,13 @@ end-to-end tests ([docs/DEVELOPMENT.md](../docs/DEVELOPMENT.md#tests)). Outputs 
 
 The tests that show the desktop dot-source `assert-desktop.ps1`, which stops them while Windows is locked: presents and the clipboard stall then, so the results would be false failures.
 
+## Backend regression tests (Linux, no desktop)
+
+`pointer-warp-test.cpp` runs an isolated AF_UNIX WSL backend with an authenticated fake viewer and
+two outputs. It verifies explicit warp routing and the absence of a normal-motion feedback loop.
+See the [cursor upgrade audit](../docs/research/05-workspace-cursor-upgrade.md#validation-and-remaining-desktop-check)
+for compilation against the patched source without installing a new library.
+
 ## Benchmarks (C / Python; build with `cc -O2`, see each file's header)
 
 | File | Question it answers |

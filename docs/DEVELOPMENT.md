@@ -78,6 +78,11 @@ End-to-end tests run from Windows (PowerShell) against an installed distro (`-Di
 
 Benchmarks behind design decisions (for example `bench-upload.c` for the Mesa upload-heap patch, `bench-dax-alloc.c` for shm buffer allocation) are listed in [lab/README.md](../lab/README.md). Their results are in [WORKLOG.md](WORKLOG.md).
 
+For explicit cursor warps, [lab/pointer-warp-test.cpp](../lab/pointer-warp-test.cpp) tests the WSL
+backend without a desktop. The [upgrade audit](research/05-workspace-cursor-upgrade.md) gives its
+compile command and the remaining visual checks. Package-generation regressions run with
+`python3 tools/test-hyprland-pkgbuild.py -v`.
+
 ## Changing the protocol
 
 [protocol/wdp.h](../protocol/wdp.h) is the specification. A change touches all of these:

@@ -10,7 +10,8 @@ cd "$ROOT"
 export_series() { # <fork> <upstream tag> <patch dir>
   [ -z "$(git -C "$1" status --porcelain --untracked-files=no)" ] || { echo "$1 has uncommitted changes" >&2; exit 1; }
   rm -f "$3"/0*.patch
-  git -C "$1" format-patch --quiet --zero-commit --no-signature -o "$ROOT/$3" "$2..HEAD"
+  # Keep exports independent of a contributor's diff.algorithm setting.
+  git -C "$1" format-patch --quiet --zero-commit --no-signature --diff-algorithm=myers -o "$ROOT/$3" "$2..HEAD"
 }
 export_series src/aquamarine "$AQUAMARINE_TAG" patches/aquamarine
 export_series src/Hyprland "$HYPRLAND_TAG" patches/hyprland

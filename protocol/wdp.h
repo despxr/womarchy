@@ -75,6 +75,7 @@
 #define WDP_OUTPUT_REMOVED 102u /* wdp_output_removed */
 #define WDP_FRAME          103u /* wdp_frame + wdp_rect[nrects] (+ pixels if INLINE) */
 #define WDP_CURSOR         104u /* wdp_cursor (+ width*height*4 bytes if has_image) */
+#define WDP_POINTER_WARP   105u /* wdp_pointer_warp: explicit compositor warp of the host cursor */
 #define WDP_BYE            110u /* wdp_bye: the compositor is exiting */
 
 /* message types: clipboard channel */
@@ -209,6 +210,12 @@ struct wdp_cursor {
     uint32_t width, height;
     int32_t  hot_x, hot_y;
     /* uint8_t argb8888[width * height * 4] if has_image */
+};
+
+/* Only explicit warps, never ordinary pointer motion or cursor-plane updates: no feedback loop. */
+struct wdp_pointer_warp {
+    uint32_t output_id;
+    double   x, y; /* output-local physical pixels, excluding the cursor hotspot */
 };
 
 struct wdp_bye {

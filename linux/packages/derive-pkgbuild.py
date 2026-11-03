@@ -2,10 +2,11 @@
 """Derive a womarchy PKGBUILD from an Arch one: same package name(s), pkgrel suffixed with .1,
 our patches added to source[] (SKIP checksums) and applied at the start of prepare().
 
-usage: derive-pkgbuild.py <arch PKGBUILD> <out PKGBUILD> <patch-dir-in-srcdir> [--rel N] [--only NAME...] -- <patch files...>
+usage: derive-pkgbuild.py <arch PKGBUILD> <out PKGBUILD> <patch-dir-in-srcdir> [--rel N] [--require DEP] [--only NAME...] -- <patch files...>
   <patch-dir-in-srcdir>: directory (relative to $srcdir) to `cd` into before applying patches
   --rel N: womarchy revision, pkgrel becomes <arch pkgrel>.N (default 1); bump it when our patches change
   --only NAME: keep only these split packages (drops the other package_* functions)
+  --require DEP: replace an existing runtime package dependency with a versioned one (repeatable)
 """
 import re
 import sys
@@ -18,6 +19,11 @@ if "--rel" in rest:
     i = rest.index("--rel")
     rel = rest[i + 1]
     rest = rest[:i] + rest[i + 2:]
+requires = []
+while "--require" in rest:
+    i = rest.index("--require")
+    requires.append(rest[i + 1])
+    rest = rest[:i] + rest[i + 2:]
 only = []
 if "--only" in rest:
     i = rest.index("--only")
@@ -28,6 +34,21 @@ patches = [p.split("/")[-1] for p in rest[rest.index("--") + 1:]]
 
 s = open(src, encoding="utf-8").read()
 s = re.sub(r"^pkgrel=(\d+)$", lambda m: f"pkgrel={m.group(1)}.{rel}", s, count=1, flags=re.M)
+
+for requirement in requires:
+    match = re.fullmatch(r"([\w+@.-]+)(?:>=|<=|=|>|<)[\w+.:~-]+", requirement)
+    if not match:
+        sys.exit(f"invalid versioned dependency: {requirement}")
+    name = match.group(1)
+    depends = re.search(r"^depends=\((.*?)\)", s, flags=re.S | re.M)
+    if not depends:
+        sys.exit("expected runtime depends array")
+    # Only bare package tokens, not comments or lib<name>.so dependencies.
+    body, count = re.subn(rf"(?m)^(\s*){re.escape(name)}(?=\s|$)",
+                         lambda m: m.group(1) + "'" + requirement + "'", depends.group(1))
+    if count != 1:
+        sys.exit(f"expected one bare runtime dependency for {name}, found {count}")
+    s = s[:depends.start(1)] + body + s[depends.end(1):]
 
 if only:
     if re.search(r"^pkgname=\(", s, flags=re.M):

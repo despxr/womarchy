@@ -50,7 +50,8 @@ reasoning behind the design see [FEASIBILITY.md](FEASIBILITY.md); for the wire f
 4. **Run.** For each output the compositor sends:
    - `OUTPUT` (its size);
    - `FRAME` messages naming the shared-memory buffer that holds the frame and its damage rectangles (max 64; more become one bounding box);
-   - `CURSOR` when the cursor image changes.
+   - `CURSOR` when the cursor image changes;
+   - `POINTER_WARP` when keyboard focus/workspace actions explicitly relocate the host cursor.
 
    The viewer maps each buffer once, copies the damaged rectangles into a D3D11 texture, presents it, and answers `FRAME_DONE`. The compositor renders that output's next frame only after the ack (one frame in flight per output), at most at the monitor's refresh rate.
 5. **End.** Logging out of Hyprland ends `uwsm`; the backend sends `BYE` and `womarchy-session` exits with the compositor's status, which `omarchy.exe` returns to the prompt. Closing the viewer sends `QUIT`. If the viewer dies, the compositor exits after an orphan timeout, and the session stops anything that still runs.
@@ -70,7 +71,7 @@ Costs worth knowing (measured, see [WORKLOG.md](WORKLOG.md)):
 - **Keyboard:** a low-level keyboard hook runs on its own thread. It forwards keys only while one of our windows has focus, so Super, Alt+Tab and similar reach Hyprland. Windows keeps Win+L and Ctrl+Alt+Del. Ctrl+Alt+End minimises the desktop (the escape hatch).
 - **Keymap:** keys are sent as Linux evdev codes; the layout is applied in Linux (XKB, set from Windows' layouts at first run).
 - **Mouse:** absolute positions per output, plus buttons and wheel. Hyprland maps an output's absolute motion onto that monitor (patch 0005), so the pointer moves between monitors exactly as Windows moves it between windows.
-- **Cursor:** the cursor is drawn by Windows: the compositor sends cursor images, and the viewer turns them into native cursors. It never lags behind the frames.
+- **Cursor:** the cursor is drawn by Windows: the compositor sends cursor images, and the viewer turns them into native cursors. It never lags behind the frames. Explicit compositor warps also reach the host through `POINTER_WARP`; ordinary motion is never echoed back. Warps use output-local physical coordinates and only move the cursor while the viewer is live and foreground and the target window is visible.
 
 ## Display changes and DPI
 

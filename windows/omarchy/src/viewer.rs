@@ -34,6 +34,8 @@ use windows::Win32::UI::WindowsAndMessaging::*;
 /// Thread messages to the UI thread (posted with PostThreadMessageW, handled in run_message_loop).
 const WM_APP_CURSOR: u32 = WM_APP + 1; // a new cursor image arrived
 const WM_APP_MINIMIZE: u32 = WM_APP + 2; // Ctrl+Alt+End: minimise the desktop
+const WM_APP_POINTER_WARP: u32 = WM_APP + 3;
+static POINTER_WARP: Mutex<Option<wdp::PointerWarp>> = Mutex::new(None);
 
 /// One viewer window.
 #[derive(Clone, Copy, Debug)]
@@ -291,6 +293,7 @@ pub fn run_message_loop() {
                 match msg.message {
                     WM_APP_CURSOR => apply_pending_cursor(),
                     WM_APP_MINIMIZE => show_all(SW_MINIMIZE),
+                    WM_APP_POINTER_WARP => apply_pointer_warp(),
                     _ => {}
                 }
             }
@@ -579,6 +582,27 @@ fn apply_pending_cursor() {
     reapply_cursor();
 }
 
+fn apply_pointer_warp() {
+    let Some(warp) = POINTER_WARP.lock().unwrap().take() else { return };
+    if !LIVE.load(Ordering::SeqCst) {
+        return;
+    }
+    let Some(s) = surface_by_id(warp.output) else { return };
+    let Some((x, y)) = warp.client_point(s.width, s.height) else { return };
+    unsafe {
+        // Never pull the pointer out of another Windows application or onto a hidden viewer.
+        let h = HWND(s.hwnd as *mut _);
+        if !is_ours(GetForegroundWindow()) || !IsWindowVisible(h).as_bool() || IsIconic(h).as_bool() {
+            return;
+        }
+        let mut pt = POINT { x, y };
+        if ClientToScreen(h, &mut pt).as_bool() {
+            let _ = SetCursorPos(pt.x, pt.y);
+        }
+        // Windows' resulting WM_MOUSEMOVE goes through the normal input path, keeping both ends in sync.
+    }
+}
+
 fn reapply_cursor() {
     unsafe {
         let mut pt = POINT::default();
@@ -729,6 +753,14 @@ pub fn run_session(conn: Conn, transport: u32, vm_id: String, opts: RenderOption
                 drop(c);
                 unsafe {
                     let _ = PostThreadMessageW(MAIN_THREAD.load(Ordering::SeqCst), WM_APP_CURSOR, WPARAM(0), LPARAM(0));
+                }
+            }
+            wdp::POINTER_WARP => {
+                if let Some(warp) = wdp::PointerWarp::parse(&payload) {
+                    *POINTER_WARP.lock().unwrap() = Some(warp);
+                    unsafe {
+                        let _ = PostThreadMessageW(MAIN_THREAD.load(Ordering::SeqCst), WM_APP_POINTER_WARP, WPARAM(0), LPARAM(0));
+                    }
                 }
             }
             wdp::BYE => {
