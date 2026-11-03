@@ -8,6 +8,10 @@ on:
         description: Packages to rebuild (space-separated); empty only re-signs the repository
         required: false
         default: 'mesa-womarchy womarchy-keyring'
+      build_run_id:
+        description: Optional previous packages run on main whose successful build artifacts should be published
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -27,7 +31,7 @@ env:
 
 jobs:
   build:
-    if: inputs.packages != ''
+    if: inputs.packages != '' && inputs.build_run_id == ''
     runs-on: ubuntu-latest
     container: archlinux:base-devel
     timeout-minutes: 300
@@ -72,20 +76,39 @@ jobs:
     environment: womarchy-repo
     permissions:
       contents: write
+      actions: read
     steps:
       - name: Tools
         run: |
           pacman-key --init
           pacman-key --populate archlinux
-          pacman -Syu --noconfirm github-cli gnupg curl libarchive
+          pacman -Syu --noconfirm github-cli gnupg curl libarchive diffutils
 
       - uses: actions/checkout@v7
 
+      - name: Validate reusable build
+        if: inputs.build_run_id != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          BUILD_RUN_ID: ${{ inputs.build_run_id }}
+        run: |
+          set -euo pipefail
+          [[ $BUILD_RUN_ID =~ ^[0-9]+$ ]]
+          source_repo=$(gh api "repos/$GH_REPO/actions/runs/$BUILD_RUN_ID" --jq '.head_repository.full_name')
+          [[ $source_repo == "$GH_REPO" ]]
+          gh api "repos/$GH_REPO/actions/runs/$BUILD_RUN_ID" \
+            --jq '.head_branch == "main" and .path == ".github/workflows/packages.yml"' | grep -qx true
+          gh api "repos/$GH_REPO/actions/runs/$BUILD_RUN_ID/jobs?per_page=100" \
+            --jq '[.jobs[] | select(.name == "build" and .conclusion == "success")] | length == 1' | grep -qx true
+
       - uses: actions/download-artifact@v8
-        if: needs.build.result == 'success'
+        if: needs.build.result == 'success' || inputs.build_run_id != ''
         with:
           name: packages
           path: new
+          run-id: ${{ inputs.build_run_id || github.run_id }}
+          github-token: ${{ github.token }}
 
       - name: Fetch and verify the existing signed repository
         env:

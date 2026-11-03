@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Regression tests for the Mesa rebuild, without installing packages."""
 from pathlib import Path
+import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -43,6 +45,26 @@ class MesaPkgbuildTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("expected Mesa and lavapipe LLVM dependencies", result.stderr)
             self.assertFalse(output.exists())
+
+    def test_fetch_reports_missing_cmp_before_network_or_crypto(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bindir = Path(tmp) / "bin"
+            bindir.mkdir()
+            # Only dirname is executed before the dependency check. The other
+            # commands are placeholders: no networking or key import may occur.
+            (bindir / "dirname").symlink_to(shutil.which("dirname"))
+            for name in ("gpg", "curl", "bsdtar", "sha256sum"):
+                stub = bindir / name
+                stub.write_text("#!/bin/sh\necho 'unexpected tool execution' >&2\nexit 99\n")
+                stub.chmod(0o755)
+            result = subprocess.run(
+                [shutil.which("bash"), str(PACKAGES / "fetch-signed-db.sh"), tmp],
+                env={**os.environ, "PATH": str(bindir)}, capture_output=True, text=True,
+            )
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("missing cmp", result.stderr)
+            self.assertNotIn("differ", result.stderr)
+            self.assertNotIn("unexpected tool execution", result.stderr)
 
     def test_new_scripts_parse(self):
         for name in ("publish-packages.sh", "check-mesa-llvm.sh"):

@@ -44,6 +44,17 @@ gh workflow run packages.yml --repo kineticz/womarchy --ref main \
 gh run list --repo kineticz/womarchy --workflow packages.yml
 ```
 
+If publication fails after a successful build, reuse that run's artifacts with
+current publication code instead of rebuilding (replace `RUN_ID`):
+
+```sh
+gh workflow run packages.yml --repo kineticz/womarchy --ref main \
+  -f packages='' -f build_run_id=RUN_ID
+```
+
+Only artifacts from a successful `build` job of this repository's `packages`
+workflow on `main` are accepted. Expired artifacts require a new build.
+
 After a successful packages workflow, `snapshot-watch.yml` automatically checks
 installation of the complete repository on the current snapshot, including the
 mirrored Hyprland and aquamarine packages. It can also be run manually. If those

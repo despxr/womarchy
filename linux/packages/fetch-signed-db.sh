@@ -51,7 +51,7 @@ repo=${repo:-$ROOT/out/repo}
 
 die() { echo "fetch-signed-db.sh: $*" >&2; exit 1; }
 [[ -d $repo ]] || die "no repo directory $repo"
-for c in gpg curl bsdtar sha256sum; do command -v "$c" >/dev/null || die "missing $c"; done
+for c in gpg curl bsdtar sha256sum cmp; do command -v "$c" >/dev/null || die "missing $c"; done
 
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
