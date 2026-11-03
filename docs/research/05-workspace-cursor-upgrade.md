@@ -168,6 +168,7 @@ not in the repository. The temporary distro is stopped after use.
 
 Deployment staging: the new Windows viewer is in the approved `code/bin` folder, and the existing
 Omarchy Start-menu shortcut targets it. Previous viewer/shortcut and both old package archives were
-saved for rollback. Linux package installation on the everyday desktop is awaiting authorization
-in a dedicated sudo terminal after the background pkexec request expired. The active desktop has
-not been restarted; it still uses the old compositor until installation and an agreed restart.
+saved for rollback. Linux package installation on the everyday desktop is deferred pending owner
+authorization: both the background pkexec request and the offered sudo password prompt expired
+without authorization. No Linux packages were changed there. The active desktop has not been
+restarted; it still uses the old compositor until installation and an agreed restart.
