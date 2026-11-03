@@ -65,18 +65,10 @@ jobs:
           curl -fsSL "https://raw.githubusercontent.com/$GITHUB_REPOSITORY/$GITHUB_SHA/linux/packages/womarchy-keyring/womarchy.asc" | pacman-key --add -
           pacman-key --lsign-key E0294A6FFD4CC7FF61F86F0BB0EE0B3F4029644C
           report=$(mktemp)
-          {
-            if ! pacman -Syyuu --noconfirm; then
-              echo "- moving the container to the snapshot failed"
-            elif ! out=$(pacman -S --noconfirm womarchy/aquamarine womarchy/hyprland womarchy/mesa womarchy/vulkan-dzn womarchy/womarchy-session 2>&1); then
-              echo "- **our packages no longer install on this snapshot:**"
-              echo '```'; grep -E 'error|breaks dependency|unable to satisfy|conflict' <<<"$out" | head -20; echo '```'
-            else
-              missing=$(for f in /usr/bin/Hyprland /usr/lib/libaquamarine.so /usr/lib/libgallium-*.so /usr/lib/libvulkan_dzn.so; do
-                          ldd "$f" | grep 'not found' | sed "s|^|$f: |"; done)
-              [[ -z $missing ]] || { echo "- **libraries our packages need are gone from this snapshot:**"; echo '```'; echo "$missing"; echo '```'; }
-            fi
-          } > "$report"
+          script=$(mktemp)
+          curl -fsSL "https://raw.githubusercontent.com/$GITHUB_REPOSITORY/$GITHUB_SHA/tools/snapshot-report.sh" -o "$script"
+          bash "$script" > "$report"
+          rm -f "$script"
           cat "$report"
           { echo 'report<<EOF'; cat "$report"; echo EOF; } >> "$GITHUB_OUTPUT"
           mkdir -p checked

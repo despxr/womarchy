@@ -66,8 +66,42 @@ class MesaPkgbuildTests(unittest.TestCase):
             self.assertNotIn("differ", result.stderr)
             self.assertNotIn("unexpected tool execution", result.stderr)
 
+    def test_snapshot_report_distinguishes_health_from_tool_failures(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bindir = Path(tmp)
+            (bindir / "pacman").write_text(
+                '#!/bin/sh\necho "routine pacman output"\n'
+                'if [ "$1" = -Syyuu ] && [ "$MODE" = sync-failure ]; then exit 1; fi\n'
+                'if [ "$1" = -S ] && [ "$MODE" = install-failure ]; then exit 1; fi\n'
+            )
+            (bindir / "ldd").write_text(
+                '#!/bin/sh\ncase "$MODE" in\n'
+                'missing) echo "libLLVM.so.22.1 => not found" ;;\n'
+                'ldd-failure) echo "ldd error" >&2; exit 1 ;;\n'
+                '*) echo "libLLVM.so.23.1 => /usr/lib/libLLVM.so.23.1" ;;\nesac\n'
+            )
+            for path in bindir.iterdir():
+                path.chmod(0o755)
+            expected = {
+                "healthy": "", "missing": "libLLVM.so.22.1 => not found",
+                "ldd-failure": "ldd failed", "sync-failure": "moving the container",
+                "install-failure": "packages no longer install",
+            }
+            for mode, marker in expected.items():
+                with self.subTest(mode=mode):
+                    result = subprocess.run(
+                        ["bash", str(ROOT / "tools/snapshot-report.sh")],
+                        env={**os.environ, "PATH": f"{bindir}:{os.environ['PATH']}", "MODE": mode},
+                        capture_output=True, text=True,
+                    )
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    if marker:
+                        self.assertIn(marker, result.stdout)
+                    else:
+                        self.assertEqual(result.stdout, "")
+
     def test_new_scripts_parse(self):
-        for name in ("publish-packages.sh", "check-mesa-llvm.sh"):
+        for name in ("publish-packages.sh", "check-mesa-llvm.sh", "snapshot-report.sh"):
             with self.subTest(script=name):
                 result = subprocess.run(["bash", "-n", str(ROOT / "tools" / name)],
                                         capture_output=True)
