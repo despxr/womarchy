@@ -168,7 +168,9 @@ not in the repository. The temporary distro is stopped after use.
 
 Deployment staging: the new Windows viewer is in the approved `code/bin` folder, and the existing
 Omarchy Start-menu shortcut targets it. Previous viewer/shortcut and both old package archives were
-saved for rollback. Linux package installation on the everyday desktop is deferred pending owner
-authorization: both the background pkexec request and the offered sudo password prompt expired
-without authorization. No Linux packages were changed there. The active desktop has not been
-restarted; it still uses the old compositor until installation and an agreed restart.
+saved for rollback. After the owner authorized a new interactive sudo prompt, Aquamarine
+`0.15.1-1.10` and Hyprland `0.56.2-4.7` installed successfully on the everyday desktop. Package
+integrity checks reported no altered files and all linked libraries resolve. The owner also approved
+the session restart. A one-time Windows maintenance task is used because the Linux terminal/agent
+belongs to the graphical session that will stop; the task validates the new process, rendering, and
+actual desktop cursor synchronization, records its result locally, and deletes its registration.
