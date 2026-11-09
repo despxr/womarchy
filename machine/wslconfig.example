@@ -1,0 +1,25 @@
+# Machine profile: Lenovo laptop, Ryzen AI 7 PRO 350 (8C/16T), 27.6 GB RAM.
+#
+# Copy this file to %UserProfile%\.wslconfig, then restart WSL:
+#
+#     wsl --shutdown
+#
+# NOTE: .wslconfig is global. It applies to EVERY WSL distro on this machine
+# (Debian, docker-desktop, Omarchy), not just Omarchy. The cap below is what
+# keeps a full Linux desktop from starving Windows on a 27.6 GB laptop.
+
+[wsl2]
+# Leave ~11 GB for Windows and Docker Desktop. Raise to 20GB if you never run
+# Docker and want the desktop to breathe; lower to 12GB if Windows gets tight.
+memory=16GB
+swap=8GB
+
+# processors is left at the default (all 16 threads). A Wayland desktop with
+# three outputs benefits from more cores than a container workload does.
+
+[experimental]
+# Return freed pages to Windows instead of holding the peak forever. This is
+# the setting that makes a desktop-in-WSL tolerable on a laptop.
+autoMemoryReclaim=gradual
+# Do not keep the virtual disk at its high-water mark.
+sparseVhd=true
