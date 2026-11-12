@@ -353,6 +353,17 @@ unsafe extern "system" fn ll_keyboard(code: i32, wparam: WPARAM, lparam: LPARAM)
         if kb.scanCode != 0x21D {
             let extended = kb.flags.0 & LLKHF_EXTENDED.0 != 0;
 
+            // Left Alt (AltGr is the extended right Alt and still goes to Linux)
+            // plus Tab/Shift pressed with left Alt belong to Windows: pass them
+            // through so the native task switcher works over the desktop.
+            let alt_down_windows = GetAsyncKeyState(VK_LMENU.0 as i32) < 0;
+            if (kb.vkCode == VK_LMENU.0 as u32 && !extended)
+                || (alt_down_windows
+                    && (kb.vkCode == VK_TAB.0 as u32 || kb.vkCode == VK_SHIFT.0 as u32))
+            {
+                return CallNextHookEx(None, code, wparam, lparam);
+            }
+
             // Escape hatch that never reaches Linux: Ctrl+Alt+End minimises the desktop.
             let ctrl = GetAsyncKeyState(VK_CONTROL.0 as i32) < 0;
             let alt = GetAsyncKeyState(VK_MENU.0 as i32) < 0;
